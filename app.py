@@ -71,6 +71,15 @@ st.markdown("""
         margin: 8px 0;
     }
     .match-bar-fill { height: 100%; border-radius: 8px; }
+
+    [data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-user"]) {
+        flex-direction: row-reverse;
+        text-align: right;
+    }
+
+    [data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-user"]) .stMarkdown {
+        text-align: right;
+    }
 </style>
 """, unsafe_allow_html=True)
 
