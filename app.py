@@ -9,21 +9,16 @@ try:
 except ImportError:
     pass
 
+try:
+    os.environ["OPENAI_API_KEY"] = st.secrets["OPENAI_API_KEY"]
+except Exception:
+    pass  # Running locally, use .env instead
+
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain_openai import ChatOpenAI
-
-
-
-# Load environment variables
-load_dotenv()
-
-try:
-    os.environ["OPENAI_API_KEY"] = st.secrets["OPENAI_API_KEY"]
-except Exception:
-    pass  # Running locally, use .env instead
 
 # ── Page config ───────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -65,11 +60,7 @@ st.markdown("""
         text-align: center;
         margin-bottom: 1rem;
     }
-    .score-number {
-        font-size: 3.5rem;
-        font-weight: 800;
-        line-height: 1;
-    }
+    .score-number { font-size: 3.5rem; font-weight: 800; line-height: 1; }
     .score-label { font-size: 0.9rem; color: #888; margin-top: 4px; }
     .match-bar-bg {
         background: #1e2130;
@@ -79,10 +70,7 @@ st.markdown("""
         overflow: hidden;
         margin: 8px 0;
     }
-    .match-bar-fill {
-        height: 100%;
-        border-radius: 8px;
-    }
+    .match-bar-fill { height: 100%; border-radius: 8px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -121,7 +109,7 @@ if "resume_text" not in st.session_state:
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 def get_llm():
-    return ChatOpenAI(model="gpt-4o-mini", temperature=0.3)
+    return ChatOpenAI(model="gpt-4o-mini", temperature=0.7)
 
 def get_resume_context(question, k=5):
     retriever = st.session_state.vectorstore.as_retriever(search_kwargs={"k": k})
@@ -156,7 +144,7 @@ if uploaded_file:
             st.session_state.messages = []
             os.unlink(temp_path)
 
-        st.success(f"✅ **{uploaded_file.name}** indexed successfully!")
+        st.success(f"✅ **{uploaded_file.name}** indexed successfully! Head to the Chat tab to start asking questions.")
     else:
         st.success(f"✅ **{uploaded_file.name}** is loaded and ready.")
 
@@ -182,6 +170,12 @@ with tab1:
     </div>
     """, unsafe_allow_html=True)
 
+    # Show welcome message if no chat history yet
+    if not st.session_state.messages:
+        with st.chat_message("assistant"):
+            st.write("👋 Hey there! I'm **CareerBoost AI**, your personal resume coach. Upload your resume above and I can help you:\n\n- 📝 Summarize and analyze it\n- 🎯 Find matching jobs\n- ⚠️ Spot weaknesses\n- 💡 Suggest improvements\n\nWhat would you like to know?")
+
+    # Render chat history
     for role, content in st.session_state.messages:
         with st.chat_message(role):
             st.write(content)
@@ -189,21 +183,40 @@ with tab1:
     user_question = st.chat_input("Ask something about the resume...")
 
     if user_question:
-        if st.session_state.vectorstore is None:
-            st.warning("⚠️ Please upload a resume PDF first.")
-            st.stop()
-
+        # Show user message
         st.session_state.messages.append(("user", user_question))
         with st.chat_message("user"):
             st.write(user_question)
 
+        # Handle no resume uploaded
+        if st.session_state.vectorstore is None:
+            greetings = ["hi", "hello", "hey", "sup", "yo", "good morning", "good afternoon", "good evening", "howdy"]
+            how_are_you = ["how are you", "how r you", "how are u", "what's up", "whats up", "wassup"]
+
+            if any(word in user_question.lower() for word in greetings):
+                answer = "👋 Hello! Great to meet you! I'm CareerBoost AI — your personal resume coach. To get started, just upload your resume PDF above and I'll help you analyze it, score it, find job matches, and more! 😊"
+            elif any(phrase in user_question.lower() for phrase in how_are_you):
+                answer = "I'm doing great, thanks for asking! 😄 I'm ready to help you level up your resume. Just upload your PDF above and we can get started!"
+            else:
+                answer = "⚠️ Looks like you haven't uploaded a resume yet! Please upload your resume PDF above first, and then I can answer your questions. I'm here to help! 😊"
+
+            st.session_state.messages.append(("assistant", answer))
+            with st.chat_message("assistant"):
+                st.write(answer)
+            st.stop()
+
+        # Resume is loaded — answer using RAG
         context = get_resume_context(user_question)
 
-        full_prompt = f"""You are CareerBoost AI, an expert resume coach and career advisor.
+        full_prompt = f"""You are CareerBoost AI, a friendly, encouraging, and expert resume coach and career advisor.
+Your personality is warm, supportive, and professional — like a helpful mentor, not a robot.
 You ONLY answer questions related to the resume provided.
-If the user asks anything unrelated to the resume, politely decline and remind them to ask about the resume.
-Be specific, constructive, and actionable. Always base answers strictly on the resume content provided.
-If the resume doesn't contain enough information to answer, say so clearly.
+If the user asks anything unrelated to the resume (e.g. math, general knowledge, small talk unrelated to careers),
+kindly let them know you're focused on resume help and guide them back.
+Be specific, constructive, and actionable in your feedback.
+Use bullet points or short paragraphs where helpful.
+Always base your answers strictly on the resume content provided.
+If the resume doesn't contain enough information to answer, say so honestly and suggest what they could add.
 
 --- RESUME CONTENT ---
 {context}
@@ -211,7 +224,7 @@ If the resume doesn't contain enough information to answer, say so clearly.
 
 User Question: {user_question}
 
-Answer helpfully and concisely:"""
+Answer in a friendly, helpful, and encouraging tone:"""
 
         with st.chat_message("assistant"):
             with st.spinner("Thinking..."):
