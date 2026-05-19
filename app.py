@@ -3,7 +3,11 @@ import tempfile
 import os
 import json
 
-from dotenv import load_dotenv
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -11,8 +15,15 @@ from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain_openai import ChatOpenAI
 
+
+
 # Load environment variables
 load_dotenv()
+
+try:
+    os.environ["OPENAI_API_KEY"] = st.secrets["OPENAI_API_KEY"]
+except Exception:
+    pass  # Running locally, use .env instead
 
 # ── Page config ───────────────────────────────────────────────────────────────
 st.set_page_config(
