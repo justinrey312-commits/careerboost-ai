@@ -70,7 +70,22 @@ st.markdown("""
         overflow: hidden;
         margin: 8px 0;
     }
-    .match-bar-fill { height: 100%; border-radius: 8px; }
+   .match-bar-fill { height: 100%; border-radius: 8px; }
+
+    /* Push user messages to the right */
+    [data-testid="stChatMessageContainer"] [data-testid="stChatMessage"]:has([class*="user"]) {
+        flex-direction: row-reverse !important;
+    }
+
+    div[class*="stChatMessage"][class*="user"] {
+        flex-direction: row-reverse !important;
+        justify-content: flex-start !important;
+    }
+
+    /* Target by avatar position — user is always second avatar type */
+    .stChatMessage:nth-child(even) {
+        flex-direction: row-reverse !important;
+    }
 
     [data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-user"]) {
         flex-direction: row-reverse;
