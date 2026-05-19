@@ -157,7 +157,7 @@ tab1, tab2, tab3, tab4 = st.tabs([
 ])
 
 # ════════════════════════════════════════════════════════════════════════
-# TAB 1 — CHAT
+# TAB 1 — CHAT (display only, no input here)
 # ════════════════════════════════════════════════════════════════════════
 with tab1:
     st.markdown("""
@@ -179,60 +179,6 @@ with tab1:
     for role, content in st.session_state.messages:
         with st.chat_message(role):
             st.write(content)
-
-    user_question = st.chat_input("Ask something about the resume...")
-
-    if user_question:
-        # Show user message
-        st.session_state.messages.append(("user", user_question))
-        with st.chat_message("user"):
-            st.write(user_question)
-
-        # Handle no resume uploaded
-        if st.session_state.vectorstore is None:
-            greetings = ["hi", "hello", "hey", "sup", "yo", "good morning", "good afternoon", "good evening", "howdy"]
-            how_are_you = ["how are you", "how r you", "how are u", "what's up", "whats up", "wassup"]
-
-            if any(word in user_question.lower() for word in greetings):
-                answer = "👋 Hello! Great to meet you! I'm CareerBoost AI — your personal resume coach. To get started, just upload your resume PDF above and I'll help you analyze it, score it, find job matches, and more! 😊"
-            elif any(phrase in user_question.lower() for phrase in how_are_you):
-                answer = "I'm doing great, thanks for asking! 😄 I'm ready to help you level up your resume. Just upload your PDF above and we can get started!"
-            else:
-                answer = "⚠️ Looks like you haven't uploaded a resume yet! Please upload your resume PDF above first, and then I can answer your questions. I'm here to help! 😊"
-
-            st.session_state.messages.append(("assistant", answer))
-            with st.chat_message("assistant"):
-                st.write(answer)
-            st.stop()
-
-        # Resume is loaded — answer using RAG
-        context = get_resume_context(user_question)
-
-        full_prompt = f"""You are CareerBoost AI, a friendly, encouraging, and expert resume coach and career advisor.
-Your personality is warm, supportive, and professional — like a helpful mentor, not a robot.
-You ONLY answer questions related to the resume provided.
-If the user asks anything unrelated to the resume (e.g. math, general knowledge, small talk unrelated to careers),
-kindly let them know you're focused on resume help and guide them back.
-Be specific, constructive, and actionable in your feedback.
-Use bullet points or short paragraphs where helpful.
-Always base your answers strictly on the resume content provided.
-If the resume doesn't contain enough information to answer, say so honestly and suggest what they could add.
-
---- RESUME CONTENT ---
-{context}
---- END OF RESUME ---
-
-User Question: {user_question}
-
-Answer in a friendly, helpful, and encouraging tone:"""
-
-        with st.chat_message("assistant"):
-            with st.spinner("Thinking..."):
-                response = get_llm().invoke(full_prompt)
-                answer = response.content
-                st.write(answer)
-
-        st.session_state.messages.append(("assistant", answer))
 
 # ════════════════════════════════════════════════════════════════════════
 # TAB 2 — RESUME SCORE
@@ -440,3 +386,54 @@ Return ONLY a valid JSON object, no extra text:
                     except Exception:
                         st.error("Could not parse match results. Raw response:")
                         st.code(response.content)
+
+# ════════════════════════════════════════════════════════════════════════
+# CHAT INPUT — Fixed at bottom, outside all tabs
+# ════════════════════════════════════════════════════════════════════════
+user_question = st.chat_input("Ask something about the resume...")
+
+if user_question:
+    # Show user message
+    st.session_state.messages.append(("user", user_question))
+
+    # Handle no resume uploaded
+    if st.session_state.vectorstore is None:
+        greetings = ["hi", "hello", "hey", "sup", "yo", "good morning", "good afternoon", "good evening", "howdy"]
+        how_are_you = ["how are you", "how r you", "how are u", "what's up", "whats up", "wassup"]
+
+        if any(word in user_question.lower() for word in greetings):
+            answer = "👋 Hello! Great to meet you! I'm CareerBoost AI — your personal resume coach. To get started, just upload your resume PDF above and I'll help you analyze it, score it, find job matches, and more! 😊"
+        elif any(phrase in user_question.lower() for phrase in how_are_you):
+            answer = "I'm doing great, thanks for asking! 😄 I'm ready to help you level up your resume. Just upload your PDF above and we can get started!"
+        else:
+            answer = "⚠️ Looks like you haven't uploaded a resume yet! Please upload your resume PDF above first, and then I can answer your questions. I'm here to help! 😊"
+
+        st.session_state.messages.append(("assistant", answer))
+        st.rerun()
+
+    else:
+        # Resume is loaded — answer using RAG
+        context = get_resume_context(user_question)
+
+        full_prompt = f"""You are CareerBoost AI, a friendly, encouraging, and expert resume coach and career advisor.
+Your personality is warm, supportive, and professional — like a helpful mentor, not a robot.
+You ONLY answer questions related to the resume provided.
+If the user asks anything unrelated to the resume (e.g. math, general knowledge, small talk unrelated to careers),
+kindly let them know you're focused on resume help and guide them back.
+Be specific, constructive, and actionable in your feedback.
+Use bullet points or short paragraphs where helpful.
+Always base your answers strictly on the resume content provided.
+If the resume doesn't contain enough information to answer, say so honestly and suggest what they could add.
+
+--- RESUME CONTENT ---
+{context}
+--- END OF RESUME ---
+
+User Question: {user_question}
+
+Answer in a friendly, helpful, and encouraging tone:"""
+
+        response = get_llm().invoke(full_prompt)
+        answer = response.content
+        st.session_state.messages.append(("assistant", answer))
+        st.rerun()
