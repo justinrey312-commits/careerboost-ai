@@ -70,31 +70,7 @@ st.markdown("""
         overflow: hidden;
         margin: 8px 0;
     }
-   .match-bar-fill { height: 100%; border-radius: 8px; }
-
-    /* Push user messages to the right */
-    [data-testid="stChatMessageContainer"] [data-testid="stChatMessage"]:has([class*="user"]) {
-        flex-direction: row-reverse !important;
-    }
-
-    div[class*="stChatMessage"][class*="user"] {
-        flex-direction: row-reverse !important;
-        justify-content: flex-start !important;
-    }
-
-    /* Target by avatar position — user is always second avatar type */
-    .stChatMessage:nth-child(even) {
-        flex-direction: row-reverse !important;
-    }
-
-    [data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-user"]) {
-        flex-direction: row-reverse;
-        text-align: right;
-    }
-
-    [data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-user"]) .stMarkdown {
-        text-align: right;
-    }
+    .match-bar-fill { height: 100%; border-radius: 8px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -143,6 +119,30 @@ def get_resume_context(question, k=5):
 def parse_json_response(raw):
     return json.loads(raw.strip().replace("```json", "").replace("```", ""))
 
+def render_chat_bubble(role, content):
+    if role == "user":
+        st.markdown(f"""
+        <div style="display:flex; justify-content:flex-end; margin:8px 0;">
+            <div style="background:#2f4f7f; color:#fff; padding:10px 16px;
+                border-radius:18px 18px 4px 18px; max-width:70%;
+                font-size:0.95rem; line-height:1.5; white-space:pre-wrap;">
+                {content}
+            </div>
+            <div style="margin-left:8px; font-size:1.5rem; align-self:flex-end;">🧑</div>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.markdown(f"""
+        <div style="display:flex; justify-content:flex-start; margin:8px 0;">
+            <div style="margin-right:8px; font-size:1.5rem; align-self:flex-end;">🤖</div>
+            <div style="background:#1e2130; color:#e8e8e8; padding:10px 16px;
+                border-radius:18px 18px 18px 4px; max-width:70%;
+                font-size:0.95rem; line-height:1.5; white-space:pre-wrap;">
+                {content}
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
 # ── File uploader ─────────────────────────────────────────────────────────────
 uploaded_file = st.file_uploader("Upload Resume PDF", type="pdf")
 
@@ -181,7 +181,7 @@ tab1, tab2, tab3, tab4 = st.tabs([
 ])
 
 # ════════════════════════════════════════════════════════════════════════
-# TAB 1 — CHAT (display only, no input here)
+# TAB 1 — CHAT
 # ════════════════════════════════════════════════════════════════════════
 with tab1:
     st.markdown("""
@@ -194,15 +194,13 @@ with tab1:
     </div>
     """, unsafe_allow_html=True)
 
-    # Show welcome message if no chat history yet
+    # Welcome message if no chat yet
     if not st.session_state.messages:
-        with st.chat_message("assistant"):
-            st.write("👋 Hey there! I'm **CareerBoost AI**, your personal resume coach. Upload your resume above and I can help you:\n\n- 📝 Summarize and analyze it\n- 🎯 Find matching jobs\n- ⚠️ Spot weaknesses\n- 💡 Suggest improvements\n\nWhat would you like to know?")
+        render_chat_bubble("assistant", "👋 Hey there! I'm CareerBoost AI, your personal resume coach. Upload your resume above and I can help you:\n\n📝 Summarize and analyze it\n🎯 Find matching jobs\n⚠️ Spot weaknesses\n💡 Suggest improvements\n\nWhat would you like to know?")
 
-    # Render chat history
+    # Render all messages as custom bubbles
     for role, content in st.session_state.messages:
-        with st.chat_message(role):
-            st.write(content)
+        render_chat_bubble(role, content)
 
 # ════════════════════════════════════════════════════════════════════════
 # TAB 2 — RESUME SCORE
@@ -417,10 +415,8 @@ Return ONLY a valid JSON object, no extra text:
 user_question = st.chat_input("Ask something about the resume...")
 
 if user_question:
-    # Show user message
     st.session_state.messages.append(("user", user_question))
 
-    # Handle no resume uploaded
     if st.session_state.vectorstore is None:
         greetings = ["hi", "hello", "hey", "sup", "yo", "good morning", "good afternoon", "good evening", "howdy"]
         how_are_you = ["how are you", "how r you", "how are u", "what's up", "whats up", "wassup"]
@@ -436,7 +432,6 @@ if user_question:
         st.rerun()
 
     else:
-        # Resume is loaded — answer using RAG
         context = get_resume_context(user_question)
 
         full_prompt = f"""You are CareerBoost AI, a friendly, encouraging, and expert resume coach and career advisor.
